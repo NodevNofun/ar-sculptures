@@ -11,6 +11,7 @@ Repository to work with "Союзмультфильм" case
 ### Первоначальная настройка Minio (Хранилище файлов)
 **Для Windows:**
 1. Запустите PowerShell **от имени администратора**.
-2. Выполните скрипт инициализации:
+2. Выполните скрипт инициализации в директории scripts:
    ```powershell
-   ./scripts/init-minio.ps1
+   PowerShell -file init-minio.ps1
+   ```
