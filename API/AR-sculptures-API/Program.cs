@@ -16,9 +16,13 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowReact", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://193.35.48.24:5173",
+                "https://nodevnofun.github.io/ar-sculptures")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
@@ -34,7 +38,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AllowReact");
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
