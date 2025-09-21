@@ -4,87 +4,150 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+    <!-- Подключаем библиотеки -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-    <title>AR World Tracking</title>
+
+    <title>AR World Experience</title>
     <style>
-        /* Убираем все отступы и скрываем скролл */
-        body, html {
+        * {
             margin: 0;
             padding: 0;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            font-family: Arial, sans-serif;
+            box-sizing: border-box;
         }
-        
-        /* Контейнер для интерфейса */
+
+        body {
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background: #000;
+            color: white;
+        }
+
+        /* Контейнеры */
         #ui-container {
             position: absolute;
-            top: 20px;
+            top: 0;
             left: 0;
             right: 0;
-            text-align: center;
             z-index: 1000;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            padding: 20px;
+            text-align: center;
         }
-        
+
+        #ar-scene {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
         /* Кнопки */
         .ar-button {
-            background: rgba(0, 150, 255, 0.8);
+            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 15px 30px;
             margin: 10px;
-            border-radius: 25px;
+            border-radius: 50px;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
-            transition: background 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        
+
         .ar-button:hover {
-            background: rgba(0, 100, 255, 0.9);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
-        
+
+        .ar-button:active {
+            transform: translateY(0);
+        }
+
+        /* Сообщения */
+        .message {
+            background: rgba(0,0,0,0.8);
+            padding: 15px 25px;
+            border-radius: 25px;
+            margin: 15px auto;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
         /* Индикатор загрузки */
         #loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: white;
-            font-size: 20px;
             text-align: center;
         }
-        
-        /* Сообщения */
-        .message {
+
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Дебаг информация */
+        #debug-info {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
             background: rgba(0,0,0,0.7);
-            padding: 15px;
+            padding: 10px;
             border-radius: 10px;
-            margin: 10px auto;
+            font-size: 12px;
             max-width: 300px;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 768px) {
+            .ar-button {
+                padding: 12px 25px;
+                font-size: 14px;
+            }
+            
+            .message {
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Интерфейс пользователя -->
+    <!-- UI интерфейс -->
     <div id="ui-container">
-        <div class="message">Добро пожаловать в AR мир!</div>
-        <button class="ar-button" id="start-button">Запустить AR</button>
-        <button class="ar-button" id="clear-button">Очистить сцену</button>
+        <div class="message">🚀 Добро пожаловать в AR мир!</div>
+        <button class="ar-button" id="start-button">▶️ Запустить AR</button>
+        <button class="ar-button" id="clear-button">🗑️ Очистить сцену</button>
+        <button class="ar-button" id="screenshot-button">📸 Скриншот</button>
     </div>
 
     <!-- Индикатор загрузки -->
-    <div id="loading">Загрузка AR...</div>
+    <div id="loading" style="display: none;">
+        <div class="loader"></div>
+        <div>Инициализация AR...</div>
+    </div>
 
     <!-- Контейнер для AR сцены -->
     <div id="ar-scene"></div>
 
-    <!-- Подключаем библиотеки -->
+    <!-- Дебаг информация -->
+    <div id="debug-info"></div>
 
+
+    
     <script src="app.js"></script>
 </body>
 </html>
