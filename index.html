@@ -2,50 +2,32 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-		
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+
+    <!-- Библиотеки -->
     <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
     <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
     <title>AR World Experience</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Arial', sans-serif; overflow: hidden; background: #000; color: white; }
-        
-        #ui-container {
-            position: absolute; top: 0; left: 0; right: 0; z-index: 1000;
-            padding: 20px; text-align: center;
-        }
-        
-        .ar-button {
-            background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-            color: white; border: none; padding: 15px 30px; margin: 10px;
-            border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer;
-            transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-        }
-        
-        .ar-button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
-        .message { background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 25px; margin: 15px auto; max-width: 300px; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; display: none; }
-        #debug-info { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 10px; font-size: 12px; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="ui-container">
-        <div class="message">🚀 Добро пожаловать в AR мир!</div>
-        <button class="ar-button" id="start-button">▶️ Запустить AR</button>
-        <button class="ar-button" id="clear-button">🗑️ Очистить сцену</button>
+        <div class="message">📱 Наведите камеру на поверхность</div>
+        <button class="ar-button" id="start-button">▶️ Старт AR</button>
+        <button class="ar-button" id="clear-button">🗑️ Очистить</button>
     </div>
 
     <div id="loading">
-        <div style="width: 50px; height: 50px; border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-        <div>Инициализация AR...</div>
+        <div class="loader"></div>
+        <div>Загрузка AR...</div>
     </div>
 
     <div id="ar-scene"></div>
     <div id="debug-info"></div>
 
-
+    <!-- скрипты -->
+    <script src="ar-manager.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
