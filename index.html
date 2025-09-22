@@ -3,85 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR World Tracking</title>
-    <style>
-        /* Убираем все отступы и скрываем скролл */
-        body, html {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            font-family: Arial, sans-serif;
-        }
-        
-        /* Контейнер для интерфейса */
-        #ui-container {
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            z-index: 1000;
-            color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        }
-        
-        /* Кнопки */
-        .ar-button {
-            background: rgba(0, 150, 255, 0.8);
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            margin: 10px;
-            border-radius: 25px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        .ar-button:hover {
-            background: rgba(0, 100, 255, 0.9);
-        }
-        
-        /* Индикатор загрузки */
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: white;
-            font-size: 20px;
-            text-align: center;
-        }
-        
-        /* Сообщения */
-        .message {
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 10px;
-            margin: 10px auto;
-            max-width: 300px;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <title>AR Soyuzmultfilm</title>
 </head>
 <body>
-    <!-- Интерфейс пользователя -->
-    <div id="ui-container">
-        <div class="message">Добро пожаловать в AR мир!</div>
-        <button class="ar-button" id="start-button">Запустить AR</button>
-        <button class="ar-button" id="clear-button">Очистить сцену</button>
+    <canvas id="renderCanvas"></canvas>
+    <div id="dom-overlay">
+        <span id="add_icon" class="material-icons-outlined">add_circle</span>
     </div>
 
-    <!-- Индикатор загрузки -->
-    <div id="loading">Загрузка AR...</div>
+    <!-- Babylon.js должен быть загружен ДО вашего скрипта -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
 
-    <!-- Контейнер для AR сцены -->
-    <div id="ar-scene"></div>
+    <script>
+        // Ждем полной загрузки Babylon.js
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                let canvas = document.getElementById('renderCanvas');
+                let domOverlay = document.querySelector('#dom-overlay');
+                let addIcon = document.querySelector('#add_icon');
 
-    <!-- Подключаем библиотеки -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-    <script src="app.js"></script>
+                // Создаем движок Babylon.js
+                let engine = new BABYLON.Engine(canvas, true, {
+                    preserveDrawingBuffer: true,
+                    stencil: true
+                });
+
+                let scene = new BABYLON.Scene(engine);
+                scene.clearColor = new BABYLON.Color4(0, 0, 0, 0); // Прозрачный фон
+
+                // Освещение
+                let light = new BABYLON.PointLight('light', new BABYLON.Vector3(10, 10, 2), scene);
+                light.intensity = 0.7;
+
+                // Создаем XR опыт
+                let xr = await scene.createDefaultXRExperienceAsync({
+                    uiOptions: {
+                        sessionMode: 'immersive-ar',
+                        referenceSpaceType: 'local-floor',
+                    }
+                });
+
+                let xrCamera = xr.baseExperience.camera;
+
+                // Включаем DOM Overlay
+                let featuresManager = xr.baseExperience.featuresManager;
+                featuresManager.enableFeature(BABYLON.WebXRDomOverlay, 'latest', {
+                    element: '#dom-overlay'
+                }, undefined, false);
+
+                // Обработка изменения состояния XR
+                xr.baseExperience.onStateChangedObservable.add((webXRState) => {
+                    console.log('XR State:', webXRState);
+                    
+                    switch(webXRState) {
+                        case BABYLON.WebXRState.IN_XR:
+                            domOverlay.style.display = 'block';
+                            break;
+                        case BABYLON.WebXRState.EXITING_XR:
+                            domOverlay.style.display = 'none';
+                            break;
+                        default:
+                            break;
+                    }
+                });
+
+                // Тестовый куб
+                let box = BABYLON.MeshBuilder.CreateBox('box', { size: 0.1 }, scene);
+                let material = new BABYLON.StandardMaterial('material', scene);
+                material.alpha = 0.7;
+                material.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
+                box.material = material;
+                box.position.y = 1;
+                box.position.z = 1;
+
+                let activeElement = null;
+
+                const createObject = () => {
+                    let obj = BABYLON.MeshBuilder.CreateBox('newBox', { size: 0.1 }, scene);
+                    let objMaterial = new BABYLON.StandardMaterial('objMaterial', scene);
+                    objMaterial.alpha = 0.7;
+                    objMaterial.diffuseColor = new BABYLON.Color3(
+                        Math.random(),
+                        Math.random(),
+                        Math.random()
+                    );
+                    obj.material = objMaterial;
+                    
+                    // Позиционируем перед камерой
+                    if (xrCamera.getFrontPosition) {
+                        obj.position = xrCamera.getFrontPosition(0.3);
+                    } else {
+                        obj.position = new BABYLON.Vector3(0, 0, -1);
+                    }
+                    
+                    activeElement = obj;
+                    console.log('Object created at:', obj.position.toString());
+                }
+
+                // Рендер-луп
+                engine.runRenderLoop(() => {
+                    if (activeElement && xrCamera.getFrontPosition) {
+                        try {
+                            activeElement.position = xrCamera.getFrontPosition(0.3);
+                        } catch (e) {
+                            console.log('Error updating position:', e);
+                        }
+                    }
+                    scene.render();
+                });
+
+                // Обработка клика по иконке
+                addIcon.addEventListener('click', (event) => {
+                    createObject();
+                });
+
+                // Обработка изменения размера окна
+                window.addEventListener('resize', () => {
+                    engine.resize();
+                });
+
+                console.log('Babylon.js XR приложение инициализировано');
+
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                alert('Ошибка загрузки AR: ' + error.message);
+            }
+        });
+    </script>
 </body>
 </html>
