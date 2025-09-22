@@ -4,6 +4,5 @@
     {
         public string ModelUrl { get; set; }
         public List<string> Animations { get; set; }
-        public string MarkerUrl { get; set; }
     }
 }
