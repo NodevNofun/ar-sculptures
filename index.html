@@ -11,32 +11,29 @@
     <canvas id="renderCanvas"></canvas>
     <div id="dom-overlay">
         <span id="add_icon" class="material-icons-outlined">add_circle</span>
+        <span id="loading_text" style="display: none;">Загрузка модели...</span>
     </div>
 
-    <!-- Babylon.js должен быть загружен ДО вашего скрипта -->
+    <!-- Babylon.js с поддержкой загрузки моделей -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
 
     <script>
-        // Ждем полной загрузки Babylon.js
         document.addEventListener('DOMContentLoaded', async function() {
             try {
                 let canvas = document.getElementById('renderCanvas');
                 let domOverlay = document.querySelector('#dom-overlay');
                 let addIcon = document.querySelector('#add_icon');
+                let loadingText = document.querySelector('#loading_text');
 
-                // Создаем движок Babylon.js
-                let engine = new BABYLON.Engine(canvas, true, {
-                    preserveDrawingBuffer: true,
-                    stencil: true
-                });
-
+                let engine = new BABYLON.Engine(canvas, true);
                 let scene = new BABYLON.Scene(engine);
-                scene.clearColor = new BABYLON.Color4(0, 0, 0, 0); // Прозрачный фон
+                scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
 
                 // Освещение
-                let light = new BABYLON.PointLight('light', new BABYLON.Vector3(10, 10, 2), scene);
-                light.intensity = 0.7;
+                let light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+                light.intensity = 0.8;
 
                 // Создаем XR опыт
                 let xr = await scene.createDefaultXRExperienceAsync({
@@ -48,88 +45,107 @@
 
                 let xrCamera = xr.baseExperience.camera;
 
-                // Включаем DOM Overlay
+                // DOM Overlay
                 let featuresManager = xr.baseExperience.featuresManager;
                 featuresManager.enableFeature(BABYLON.WebXRDomOverlay, 'latest', {
                     element: '#dom-overlay'
                 }, undefined, false);
 
-                // Обработка изменения состояния XR
+                // Обработка состояния XR
                 xr.baseExperience.onStateChangedObservable.add((webXRState) => {
-                    console.log('XR State:', webXRState);
-                    
                     switch(webXRState) {
                         case BABYLON.WebXRState.IN_XR:
-                            domOverlay.style.display = 'block';
+                            domOverlay.style.display = 'flex';
                             break;
                         case BABYLON.WebXRState.EXITING_XR:
                             domOverlay.style.display = 'none';
                             break;
-                        default:
-                            break;
                     }
                 });
 
-                // Тестовый куб
-                let box = BABYLON.MeshBuilder.CreateBox('box', { size: 0.1 }, scene);
-                let material = new BABYLON.StandardMaterial('material', scene);
-                material.alpha = 0.7;
-                material.diffuseColor = new BABYLON.Color3(1, 0.5, 0);
-                box.material = material;
-                box.position.y = 1;
-                box.position.z = 1;
-
                 let activeElement = null;
 
-                const createObject = () => {
-                    let obj = BABYLON.MeshBuilder.CreateBox('newBox', { size: 0.1 }, scene);
-                    let objMaterial = new BABYLON.StandardMaterial('objMaterial', scene);
-                    objMaterial.alpha = 0.7;
-                    objMaterial.diffuseColor = new BABYLON.Color3(
-                        Math.random(),
-                        Math.random(),
-                        Math.random()
-                    );
-                    obj.material = objMaterial;
+                // Функция загрузки модели
+                const loadModel = async (modelUrl, scene) => {
+                    loadingText.style.display = 'block';
                     
-                    // Позиционируем перед камерой
-                    if (xrCamera.getFrontPosition) {
-                        obj.position = xrCamera.getFrontPosition(0.3);
-                    } else {
-                        obj.position = new BABYLON.Vector3(0, 0, -1);
+                    try {
+                        // Загружаем модель
+                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                            null, // загружаем все меши
+                            "", // базовый URL (если модель в той же папке)
+                            modelUrl, // имя файла модели
+                            scene
+                        );
+
+                        const model = result.meshes[0];
+                        model.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1); // Масштабируем
+                        model.position = new BABYLON.Vector3(0, 0, -1);
+                        
+                        // Включаем тени
+                        model.receiveShadows = true;
+                        
+                        loadingText.style.display = 'none';
+                        return model;
+                        
+                    } catch (error) {
+                        console.error('Ошибка загрузки модели:', error);
+                        loadingText.style.display = 'none';
+                        
+                        // Создаем кубик как fallback
+                        let box = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.1 }, scene);
+                        box.material = new BABYLON.StandardMaterial('mat', scene);
+                        box.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+                        return box;
                     }
-                    
-                    activeElement = obj;
-                    console.log('Object created at:', obj.position.toString());
-                }
+                };
+
+                // Создаем объект с моделью
+                const createObject = async () => {
+                    try {
+                        // Загружаем модель (замените на путь к вашей модели)
+                        const model = await loadModel('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF/Duck.gltf', scene);
+                        
+                        // Позиционируем перед камерой
+                        if (xrCamera.getFrontPosition) {
+                            model.position = xrCamera.getFrontPosition(0.5);
+                        } else {
+                            model.position = new BABYLON.Vector3(0, 0, -1);
+                        }
+                        
+                        // Добавляем анимацию вращения
+                        scene.registerBeforeRender(() => {
+                            model.rotation.y += 0.01;
+                        });
+                        
+                        activeElement = model;
+                        
+                    } catch (error) {
+                        console.error('Ошибка создания объекта:', error);
+                    }
+                };
+
+                // Загружаем начальную модель при старте
+                let initialModel = await loadModel('model.glb', scene);
+                initialModel.position = new BABYLON.Vector3(0, 1, -2);
 
                 // Рендер-луп
                 engine.runRenderLoop(() => {
                     if (activeElement && xrCamera.getFrontPosition) {
-                        try {
-                            activeElement.position = xrCamera.getFrontPosition(0.3);
-                        } catch (e) {
-                            console.log('Error updating position:', e);
-                        }
+                        activeElement.position = xrCamera.getFrontPosition(0.5);
                     }
                     scene.render();
                 });
 
-                // Обработка клика по иконке
-                addIcon.addEventListener('click', (event) => {
-                    createObject();
-                });
+                // Обработка клика
+                addIcon.addEventListener('click', createObject);
 
-                // Обработка изменения размера окна
                 window.addEventListener('resize', () => {
                     engine.resize();
                 });
 
-                console.log('Babylon.js XR приложение инициализировано');
-
             } catch (error) {
                 console.error('Ошибка инициализации:', error);
-                alert('Ошибка загрузки AR: ' + error.message);
             }
         });
     </script>
