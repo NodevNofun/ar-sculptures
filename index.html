@@ -126,7 +126,7 @@
                 };
 
                 // Загружаем начальную модель при старте
-                let initialModel = await loadModel('model.glb', scene);
+                let initialModel = await loadModel('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/SportsCar/glTF-Binary/SportsCar.glb', scene);
                 initialModel.position = new BABYLON.Vector3(0, 1, -2);
 
                 // Рендер-луп
