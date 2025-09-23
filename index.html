@@ -104,7 +104,7 @@
                 const createObject = async () => {
                     try {
                         // Загружаем модель (замените на путь к вашей модели)
-                        const model = await loadModel("ar-sculptures/assets/models/shopping_cart.glb", scene);
+                        const model = await loadModel("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/", scene);
                         
                         // Позиционируем перед амерой
                         if (xrCamera.getFrontPosition) {
@@ -126,7 +126,7 @@
                 };
 
                 // Загружаем начальную модель при старте
-                let initialModel = await loadModel("ar-sculptures/assets/models/shopping_cart.glb", scene);
+                let initialModel = await loadModel("https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/", scene);
                 initialModel.position = new BABYLON.Vector3(0, 1, -2);
 
                 // Рендер-луп
