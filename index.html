@@ -104,9 +104,9 @@
                 const createObject = async () => {
                     try {
                         // Загружаем модель (замените на путь к вашей модели)
-                        const model = await loadModel('ar-sculptures/assets/models/gena_the_crocodile.glb', scene);
+                        const model = await loadModel('ar-sculptures\assets\models\shopping_cart.glb', scene);
                         
-                        // Позиционируем перед камерой
+                        // Позиционируем перед амерой
                         if (xrCamera.getFrontPosition) {
                             model.position = xrCamera.getFrontPosition(0.5);
                         } else {
@@ -126,7 +126,7 @@
                 };
 
                 // Загружаем начальную модель при старте
-                let initialModel = await loadModel('ar-sculptures/assets/models/gena_the_crocodile.glb', scene);
+                let initialModel = await loadModel('ar-sculptures\assets\models\shopping_cart.glb', scene);
                 initialModel.position = new BABYLON.Vector3(0, 1, -2);
 
                 // Рендер-луп
