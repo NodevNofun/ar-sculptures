@@ -12,9 +12,9 @@
     <div id="dom-overlay">
         <span id="add_icon" class="material-icons-outlined">add_circle</span>
         <span id="loading_text" style="display: none;">Загрузка модели...</span>
+        <div id="error_message" style="display: none; color: red;"></div>
     </div>
 
-    <!-- Babylon.js с поддержкой загрузки моделей -->
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
     <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
@@ -22,20 +22,158 @@
     <script>
         document.addEventListener('DOMContentLoaded', async function() {
             try {
+                console.log('🚀 Начало загрузки приложения...');
+                
                 let canvas = document.getElementById('renderCanvas');
                 let domOverlay = document.querySelector('#dom-overlay');
                 let addIcon = document.querySelector('#add_icon');
                 let loadingText = document.querySelector('#loading_text');
+                let errorMessage = document.querySelector('#error_message');
 
-                let engine = new BABYLON.Engine(canvas, true);
+                // Создаем движок с отладкой
+                let engine = new BABYLON.Engine(canvas, true, {
+                    preserveDrawingBuffer: true,
+                    stencil: true
+                });
+                
+                console.log('✅ Движок создан');
+
                 let scene = new BABYLON.Scene(engine);
                 scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+
+                // Включаем отладку
+                scene.debugLayer.show().catch(err => {
+                    console.log('Debug layer недоступен:', err);
+                });
 
                 // Освещение
                 let light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
                 light.intensity = 0.8;
+                console.log('✅ Освещение создано');
 
-                // Создаем XR опыт
+                // Сначала создаем обычную камеру для тестирования
+                let camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
+                camera.attachControl(canvas, true);
+
+                // Функция для проверки существования файла
+                const checkFileExists = async (url) => {
+                    try {
+                        const response = await fetch(url, { method: 'HEAD' });
+                        return response.ok;
+                    } catch (error) {
+                        return false;
+                    }
+                };
+
+                // Улучшенная функция загрузки модели
+                const loadModel = async (modelPath, scene) => {
+                    console.log('🔄 Пытаюсь загрузить модель:', modelPath);
+                    loadingText.style.display = 'block';
+                    errorMessage.style.display = 'none';
+                    
+                    try {
+                        // Проверяем существование файла
+                        const fileExists = await checkFileExists(modelPath);
+                        if (!fileExists) {
+                            throw new Error(`Файл не найден: ${modelPath}`);
+                        }
+
+                        console.log('✅ Файл существует, начинаю загрузку...');
+
+                        // Загружаем модель с прогрессом
+                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                            null, // загружаем все меши
+                            getBasePath(modelPath), // базовый путь
+                            getFileName(modelPath), // имя файла
+                            scene,
+                            (progress) => {
+                                console.log(`Прогресс загрузки: ${progress.loaded}/${progress.total}`);
+                            }
+                        );
+
+                        console.log('✅ Модель загружена успешно!');
+                        console.log('- Мешей:', result.meshes.length);
+                        console.log('- Материалов:', result.materials ? result.materials.length : 0);
+                        console.log('- Анимаций:', result.animationGroups ? result.animationGroups.length : 0);
+
+                        const model = result.meshes[0];
+                        model.name = "loaded-model";
+                        
+                        // Автоматическое масштабирование
+                        const boundingBox = model.getBoundingInfo().boundingBox;
+                        const size = boundingBox.maximum.subtract(boundingBox.minimum);
+                        const maxSize = Math.max(size.x, size.y, size.z);
+                        const scale = 0.5 / maxSize; // Чтобы модель была примерно 0.5 единиц в размере
+                        
+                        model.scaling = new BABYLON.Vector3(scale, scale, scale);
+                        model.position = new BABYLON.Vector3(0, 0, -2);
+                        
+                        // Настройка материала для лучшего отображения
+                        if (model.material) {
+                            model.material.backFaceCulling = false;
+                        }
+                        
+                        loadingText.style.display = 'none';
+                        return model;
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка загрузки модели:', error);
+                        loadingText.style.display = 'none';
+                        errorMessage.textContent = `Ошибка: ${error.message}`;
+                        errorMessage.style.display = 'block';
+                        
+                        // Создаем fallback кубик
+                        console.log('🔄 Создаю fallback кубик...');
+                        let box = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.3 }, scene);
+                        let material = new BABYLON.StandardMaterial('fallback-mat', scene);
+                        material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+                        material.alpha = 0.8;
+                        box.material = material;
+                        box.position = new BABYLON.Vector3(0, 0, -2);
+                        
+                        return box;
+                    }
+                };
+
+                // Вспомогательные функции для работы с путями
+                function getBasePath(fullPath) {
+                    return fullPath.substring(0, fullPath.lastIndexOf('/') + 1);
+                }
+
+                function getFileName(fullPath) {
+                    return fullPath.substring(fullPath.lastIndexOf('/') + 1);
+                }
+
+                // Тестовые пути к моделям (раскомментируйте нужный)
+                const testModels = [
+                    './ar-sculptures/assets/models/gena_the_crocodile/scene.gltf',
+                ];
+
+                // Попробуем загрузить каждую модель пока одна не сработает
+                const loadFirstAvailableModel = async () => {
+                    for (let modelPath of testModels) {
+                        console.log(`🔄 Пробую загрузить: ${modelPath}`);
+                        try {
+                            const model = await loadModel(modelPath, scene);
+                            if (model && model.name !== 'fallback') {
+                                console.log(`✅ Успешно загружена модель: ${modelPath}`);
+                                return model;
+                            }
+                        } catch (error) {
+                            console.log(`❌ Не удалось загрузить ${modelPath}:`, error.message);
+                            continue;
+                        }
+                    }
+                    throw new Error('Не удалось загрузить ни одну модель');
+                };
+
+                // Загружаем начальную модель
+                console.log('🔄 Загружаю начальную модель...');
+                let initialModel = await loadFirstAvailableModel();
+                console.log('✅ Начальная модель загружена');
+
+                // Только после успешной загрузки модели инициализируем XR
+                console.log('🔄 Инициализирую XR...');
                 let xr = await scene.createDefaultXRExperienceAsync({
                     uiOptions: {
                         sessionMode: 'immersive-ar',
@@ -53,89 +191,56 @@
 
                 // Обработка состояния XR
                 xr.baseExperience.onStateChangedObservable.add((webXRState) => {
+                    console.log('XR State:', webXRState);
                     switch(webXRState) {
                         case BABYLON.WebXRState.IN_XR:
                             domOverlay.style.display = 'flex';
+                            // Переключаемся на XR камеру
+                            scene.activeCamera = xrCamera;
                             break;
                         case BABYLON.WebXRState.EXITING_XR:
                             domOverlay.style.display = 'none';
+                            // Возвращаемся к обычной камере
+                            scene.activeCamera = camera;
                             break;
                     }
                 });
 
                 let activeElement = null;
 
-                // Функция загрузки модели
-                const loadModel = async (modelUrl, scene) => {
-                    loadingText.style.display = 'block';
-                    
-                    try {
-                        // Загружаем модель
-                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
-                            null, // загружаем все меши
-                            "", // базовый URL (если модель в той же папке)
-                            modelUrl, // имя файла модели
-                            scene
-                        );
-
-                        const model = result.meshes[0];
-                        model.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1); // Масштабируем
-                        model.position = new BABYLON.Vector3(0, 0, -1);
-                        
-                        // Включаем тени
-                        model.receiveShadows = true;
-                        
-                        loadingText.style.display = 'none';
-                        return model;
-                        
-                    } catch (error) {
-                        console.error('Ошибка загрузки модели:', error);
-                        loadingText.style.display = 'none';
-                        
-                        // Создаем кубик как fallback
-                        let box = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.1 }, scene);
-                        box.material = new BABYLON.StandardMaterial('mat', scene);
-                        box.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-                        return box;
-                    }
-                };
-
                 // Создаем объект с моделью
                 const createObject = async () => {
                     try {
-                        // Загружаем модель (замените на путь к вашей модели)
-                        const model = await loadModel('.ar-sculptures/assets/models/gena_the_crocodile/scene.gltf', scene);
+                        console.log('🔄 Создаю новый объект...');
+                        const model = await loadFirstAvailableModel();
                         
                         // Позиционируем перед камерой
-                        if (xrCamera.getFrontPosition) {
-                            model.position = xrCamera.getFrontPosition(0.5);
+                        const currentCamera = scene.activeCamera;
+                        if (currentCamera.getFrontPosition) {
+                            model.position = currentCamera.getFrontPosition(1);
                         } else {
-                            model.position = new BABYLON.Vector3(0, 0, -1);
+                            model.position = new BABYLON.Vector3(0, 0, -2);
                         }
                         
-                        // Добавляем анимацию вращения
+                        // Анимация вращения
                         scene.registerBeforeRender(() => {
                             model.rotation.y += 0.01;
                         });
                         
                         activeElement = model;
+                        console.log('✅ Новый объект создан');
                         
                     } catch (error) {
-                        console.error('Ошибка создания объекта:', error);
+                        console.error('❌ Ошибка создания объекта:', error);
                     }
                 };
 
-                // Загружаем начальную модель при старте
-                let initialModel = await loadModel('model.glb', scene);
-                initialModel.position = new BABYLON.Vector3(0, 1, -2);
-
                 // Рендер-луп
                 engine.runRenderLoop(() => {
-                    if (activeElement && xrCamera.getFrontPosition) {
-                        activeElement.position = xrCamera.getFrontPosition(0.5);
-                    }
                     scene.render();
                 });
+
+                console.log('✅ Рендер-луп запущен');
 
                 // Обработка клика
                 addIcon.addEventListener('click', createObject);
@@ -144,8 +249,11 @@
                     engine.resize();
                 });
 
+                console.log('🎉 Приложение полностью загружено!');
+
             } catch (error) {
-                console.error('Ошибка инициализации:', error);
+                console.error('💥 Критическая ошибка инициализации:', error);
+                alert('Ошибка загрузки приложения: ' + error.message);
             }
         });
     </script>
