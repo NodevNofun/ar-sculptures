@@ -114,7 +114,7 @@ namespace AR_sculptures_API.Services
                 .WithObject(fileName)
                 .WithStreamData(stream)
                 .WithObjectSize(stream.Length)
-                .WithContentType(file.ContentType);
+                .WithContentType("model/gltf-binary");
 
             await _minioClient.PutObjectAsync(putObjectArgs);
 

@@ -126,7 +126,7 @@
                 };
 
                 // Загружаем начальную модель при старте
-                let initialModel = await loadModel('https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/SportsCar/glTF-Binary/SportsCar.glb', scene);
+                let initialModel = await loadModel("http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc", scene);
                 initialModel.position = new BABYLON.Vector3(0, 1, -2);
 
                 // Рендер-луп
