@@ -73,8 +73,8 @@
                         // Загружаем модель
                         const result = await BABYLON.SceneLoader.ImportMeshAsync(
                             null, // загружаем все меши
-                            "", // базовый URL (если модель в той же папке)
-                            modelUrl, // имя файла модели
+                            modelUrl, // базовый URL (если модель в той же папке)
+                            "", // имя файла модели
                             scene
                         );
 
@@ -104,7 +104,7 @@
                 const createObject = async () => {
                     try {
                         // Загружаем модель (замените на путь к вашей модели)
-                        const model = await loadModel("ar-sculptures/assets/models/cheburashka.glb", scene);
+                        const model = await loadModel("http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc", scene);
                         
                         // Позиционируем перед камерой
                         if (xrCamera.getFrontPosition) {
