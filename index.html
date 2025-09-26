@@ -104,7 +104,7 @@
                 const createObject = async () => {
                     try {
                         // Загружаем модель (замените на путь к вашей модели)
-                        const model = await loadModel("http://localhost:9000/ar-content/models/70729137-ac13-4d4b-b16a-f81e4cecc699_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T181632Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=088ebf0dc262d9e3908f4f268127c893a6cecb75c84c5a96e7c7295bd0952d8f", scene);
+                        const model = await loadModel("ar-sculptures/assets/models/cheburashka.glb", scene);
                         
                         // Позиционируем перед камерой
                         if (xrCamera.getFrontPosition) {
