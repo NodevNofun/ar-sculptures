@@ -1,6 +1,11 @@
 using AR_sculptures_API.Context;
+using AR_sculptures_API.Services;
+using AR_sculptures_API.Services.Interfaces;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,6 +33,28 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var config = builder.Configuration.GetSection("Minio");
+    return new MinioClient()
+        .WithEndpoint(config["Endpoint"])
+        .WithCredentials(config["AccessKey"], config["SecretKey"])
+        .WithSSL(bool.Parse(config["WithSSL"]))
+        .Build();
+});
+
+builder.Services.AddScoped<IMinioService, MinioService>();
+
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = int.MaxValue;
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = int.MaxValue;
+    options.MultipartBodyLengthLimit = int.MaxValue;
+});
 
 var app = builder.Build();
 
