@@ -19,11 +19,11 @@
         const canvas = document.getElementById("renderCanvas");
         const loadingText = document.getElementById("loading");
 
-        // Создаём сцену
+        // Движок и сцена
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
 
-        // Камера для AR (WebXR)
+        // Камера XR
         const camera = new BABYLON.WebXRCamera("camera", scene);
         scene.activeCamera = camera;
 
@@ -31,77 +31,73 @@
         const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
         light.intensity = 0.7;
 
-        // Функция загрузки модели (теперь вызывается в XR)
+        // Функция загрузки модели
         const createObject = async (scene) => {
-            console.log('Пытаемся загрузить модель...');
+            console.log("Пытаемся загрузить модель...");
             try {
-                // Твой URL: замени на реальный (локальный, GH Pages или интернет)
-                const modelUrl = 'ar-sculptures/assets/models/cheburashka.glb'; // Пока интернет для теста
-                // Или для GH Pages: 'https://твой-username.github.io/твое-repo/ar-sculptures/assets/models/cheburashka.glb'
-                
-                const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', modelUrl, scene);
-                
+                // ⚡️ Подставь сюда свой API-эндпоинт
+                const modelUrl = "http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc";
+
+                // Загружаем модель прямо по полному URL
+                const result = await BABYLON.SceneLoader.AppendAsync(modelUrl, scene);
+
                 if (!result.meshes || result.meshes.length === 0) {
-                    throw new Error('Модель не загружена или пуста');
+                    throw new Error("Модель не загружена или пуста");
                 }
-                
+
+                // Берем первый меш
                 const model = result.meshes[0];
-                // Масштаб для AR (маленький, чтобы помещалась)
                 model.scaling = new BABYLON.Vector3(0.05, 0.05, 0.05);
-                // Позиция перед камерой в AR-пространстве
-                model.position = new BABYLON.Vector3(0, 0, -0.5); // -0.5 метра вперёд
-                
-                console.log('Модель загружена и размещена в AR!');
+                model.position = new BABYLON.Vector3(0, 0, -0.5);
+
+                console.log("Модель успешно загружена!");
                 return model;
-                
+
             } catch (error) {
-                console.error('Ошибка загрузки модели:', error);
-                
-                // Fallback: зелёный кубик
-                let cube = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.1 }, scene);
-                cube.material = new BABYLON.StandardMaterial('mat', scene);
-                cube.material.diffuseColor = new BABYLON.Color3(0, 1, 0);
+                console.error("Ошибка загрузки модели:", error);
+
+                // fallback — куб
+                let cube = BABYLON.MeshBuilder.CreateBox("fallback", { size: 0.1 }, scene);
+                cube.material = new BABYLON.StandardMaterial("mat", scene);
+                cube.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
                 cube.position = new BABYLON.Vector3(0, 0, -0.5);
-                console.log('Fallback-кубик создан');
+                console.log("Fallback-кубик создан");
                 return cube;
             }
         };
 
-        // Инициализация WebXR
+        // XR
         const initXR = async () => {
             try {
                 const xr = await scene.createDefaultXRExperienceAsync({
                     uiOptions: { sessionMode: "immersive-ar" },
                     optionalFeatures: ["hit-test", "anchors"]
                 });
-                
-                // Когда XR стартует, загружаем модель
+
                 xr.baseExperience.onStateChangedObservable.add((state) => {
                     if (state === BABYLON.WebXRState.IN_XR) {
-                        loadingText.style.display = 'none';
-                        createObject(scene); // Загружаем модель ТОЛЬКО в XR
+                        loadingText.style.display = "none";
+                        createObject(scene);
                     } else if (state === BABYLON.WebXRState.NOT_IN_XR) {
-                        loadingText.style.display = 'block';
+                        loadingText.style.display = "block";
                     }
                 });
-                
-                console.log('XR инициализирован');
+
+                console.log("XR инициализирован");
             } catch (error) {
-                console.error('Ошибка инициализации XR:', error);
-                loadingText.textContent = 'AR не поддерживается на этом устройстве';
+                console.error("Ошибка инициализации XR:", error);
+                loadingText.textContent = "AR не поддерживается на этом устройстве";
             }
         };
 
-        // Запуск
         initXR();
-        
+
         // Рендер
         engine.runRenderLoop(() => {
             scene.render();
         });
 
-        // Обработка размера окна
-        window.addEventListener('resize', () => {
+        window.addEventListener("resize", () => {
             engine.resize();
         });
     </script>
