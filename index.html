@@ -99,24 +99,44 @@
                 //         return box;
                 //     }
                 // };
-								const loadModel = async (modelUrl, scene) => {
-										loadingText.style.display = 'block';
-										try {
-												const result = await BABYLON.SceneLoader.AppendAsync(modelUrl, scene);
-												const model = result.meshes ? result.meshes[0] : scene.meshes[scene.meshes.length - 1];
-												model.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1);
-												model.position = new BABYLON.Vector3(0, 0, -1);
-												loadingText.style.display = 'none';
-												return model;
-										} catch (error) {
-												console.error("Ошибка загрузки модели:", error);
-												loadingText.style.display = 'none';
-												let box = BABYLON.MeshBuilder.CreateBox("fallback", { size: 0.1 }, scene);
-												box.material = new BABYLON.StandardMaterial("mat", scene);
-												box.material.diffuseColor = new BABYLON.Color3(1, 0, 0);
-												return box;
-										}
-								};
+									const loadModel = async (modelUrl, scene) => {
+											loadingText.style.display = 'block';
+											try {
+													console.log('Пытаемся загрузить модель:', modelUrl); // Логируем для отладки
+													const result = await BABYLON.SceneLoader.ImportMeshAsync(
+															null, // Загружаем все меши
+															modelUrl, // Базовый URL (папка с моделью)
+															"", // Имя файла (пустое, если URL уже включает файл)
+															scene
+													);
+
+													if (result.meshes.length === 0) {
+															throw new Error('В файле нет мешей');
+													}
+
+													const model = result.meshes[0]; // Берём первый меш (корневой)
+													model.scaling = new BABYLON.Vector3(0.1, 0.1, 0.1); // Масштабируем
+													model.position = new BABYLON.Vector3(0, 0, -1); // Позиция по умолчанию
+													
+													// Включаем тени (если нужно)
+													model.receiveShadows = true;
+													
+													loadingText.style.display = 'none';
+													console.log('Модель загружена успешно:', model.name); // Логируем успех
+													return model;
+													
+											} catch (error) {
+													console.error('Ошибка загрузки модели:', error);
+													loadingText.style.display = 'none';
+													
+													// Fallback: создаём кубик
+													let box = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.1 }, scene);
+													box.material = new BABYLON.StandardMaterial('mat', scene);
+													box.material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Красный кубик как индикатор ошибки
+													return box;
+											}
+									};
+
 
                 // Создаем объект с моделью
                 const createObject = async () => {
