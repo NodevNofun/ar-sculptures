@@ -36,7 +36,7 @@
             console.log('Пытаемся загрузить модель...');
             try {
                 // Твой URL: замени на реальный (локальный, GH Pages или интернет)
-                const modelUrl = 'https://raw.githack.com/mrdoob/three.js/dev/examples/models/gltf/DamagedHelmet/glTF/DamagedHelmet.glb'; // Пока интернет для теста
+                const modelUrl = 'ar-sculptures/assets/models/cheburashka.glb'; // Пока интернет для теста
                 // Или для GH Pages: 'https://твой-username.github.io/твое-repo/ar-sculptures/assets/models/cheburashka.glb'
                 
                 const result = await BABYLON.SceneLoader.ImportMeshAsync('', '', modelUrl, scene);
@@ -57,7 +57,7 @@
             } catch (error) {
                 console.error('Ошибка загрузки модели:', error);
                 
-                // Fallback: зелёный кубик (вместо шара, как ты сказал "кубик")
+                // Fallback: зелёный кубик
                 let cube = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.1 }, scene);
                 cube.material = new BABYLON.StandardMaterial('mat', scene);
                 cube.material.diffuseColor = new BABYLON.Color3(0, 1, 0);
