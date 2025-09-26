@@ -20,7 +20,8 @@
 
     <!-- A-Frame сцена -->
     <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
-        <!-- Камера (автоматически добавляется AR.js) -->
+        <!-- Явная камера с настройками для AR -->
+        <a-camera near="0.1" far="100" fov="60"></a-camera>
         
         <!-- Маркер для AR -->
         <a-marker preset="hiro" id="marker">
@@ -47,8 +48,8 @@
             // Создаём entity для модели
             const modelEntity = document.createElement('a-entity');
             modelEntity.setAttribute('gltf-model', modelUrl);
-            modelEntity.setAttribute('scale', '0.1 0.1 0.1'); // Масштаб
-            modelEntity.setAttribute('position', '0 0 0'); // Позиция относительно маркера
+            modelEntity.setAttribute('scale', '0.05 0.05 0.05'); // Уменьшенный масштаб
+            modelEntity.setAttribute('position', '0 0 -0.2'); // Позиция дальше от маркера
 
             // Обработчик загрузки
             modelEntity.addEventListener('model-loaded', () => {
@@ -63,9 +64,9 @@
                 
                 // Fallback: кубик
                 const fallback = document.createElement('a-entity');
-                fallback.setAttribute('geometry', 'primitive: box; width: 0.1; height: 0.1; depth: 0.1');
+                fallback.setAttribute('geometry', 'primitive: box; width: 0.05; height: 0.05; depth: 0.05'); // Масштаб fallback тоже уменьшен
                 fallback.setAttribute('material', 'color: red');
-                fallback.setAttribute('position', '0 0 0');
+                fallback.setAttribute('position', '0 0 -0.2'); // Та же позиция
                 container.appendChild(fallback);
             });
 
@@ -75,12 +76,12 @@
         // Обработчики кнопок
         document.getElementById('add-cheburashka').addEventListener('click', () => {
             const container = document.getElementById('object-container');
-            loadModel('ar-sculptures/assets/models/cheburashka.glb', container); // Замени на свой путь
+            loadModel('http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc', container); // Замени на свой путь
         });
 
         document.getElementById('add-crocodile').addEventListener('click', () => {
             const container = document.getElementById('object-container');
-            loadModel('https://github.com/NodevNofun/ar-sculptures/blob/ar_front/assets/models/cheburashka.glb', container); // Полный URL
+            loadModel('http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc', container); // Полный URL
         });
 
         // Инициализация (если нужно что-то ещё)
