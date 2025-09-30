@@ -16,7 +16,7 @@
         <a-entity camera="active: true" look-controls="enabled: false"></a-entity>
         
         <!-- 3D-модель, которая будет размещена в мире -->
-        <a-entity gltf-model="ar-sculptures/assets/models/cheburashka.glb" scale="0.01 0.01 0.01" position="0 0 -1" visible="true"></a-entity>
+        <a-entity id="myModelEntity" gltf-model="#myModel" scale="0.01 0.01 0.01" position="0 0 -1" visible="true"></a-entity>
         
         <!-- Плоскость для размещения модели (опционально, для лучшего взаимодействия) -->
         <a-plane position="0 0 -1" rotation="-90 0 0" width="2" height="2" color="#ffffff" opacity="0.1" visible="true" id="placementPlane"></a-plane>
