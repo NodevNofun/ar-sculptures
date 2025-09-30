@@ -2,289 +2,259 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
-    <title>AR World Tracking</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-        
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            position: fixed;
-            font-family: Arial, sans-serif;
-        }
-        
-        .ar-button {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0, 150, 255, 0.9);
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            z-index: 1000;
-            backdrop-filter: blur(10px);
-            border: 2px solid rgba(255,255,255,0.3);
-        }
-        
-        #status {
-            position: fixed;
-            top: 20px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            color: white;
-            background: rgba(0,0,0,0.7);
-            padding: 10px;
-            z-index: 1000;
-            font-size: 14px;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined">
+    <title>AR Soyuzmultfilm</title>
 </head>
 <body>
-    <!-- AR сцена -->
-    <a-scene 
-        vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; 
-              trackingMethod: world; 
-              debugUIEnabled: false;
-              sourceWidth: 1280;
-              sourceHeight: 720;
-              displayWidth: 1280; 
-              displayHeight: 720;"
-        embedded
-        renderer="logarithmicDepthBuffer: true; precision: mediump;"
-        device-orientation-permission-ui="enabled: false">
-        
-        <!-- Камера -->
-        <a-camera-static></a-camera-static>
-        
-        <!-- Сфера-индикатор для тестирования кликов -->
-        <a-sphere 
-            id="testSphere"
-            radius="0.05" 
-            color="#FF0000" 
-            position="0 0 -1"
-            visible="false"
-            class="clickable">
-        </a-sphere>
+    <canvas id="renderCanvas"></canvas>
+    <div id="dom-overlay">
+        <span id="add_icon" class="material-icons-outlined">add_circle</span>
+        <span id="loading_text" style="display: none;">Загрузка модели...</span>
+        <div id="error_message" style="display: none; color: red;"></div>
+    </div>
 
-        <!-- Контейнер для моделей -->
-        <a-entity id="models-container"></a-entity>
-
-        <!-- Освещение -->
-        <a-entity light="type: ambient; color: #CCC; intensity: 0.6"></a-entity>
-        <a-entity light="type: directional; color: #FFF; intensity: 0.8; position: 1 1 0.5"></a-entity>
-    </a-scene>
-
-    <!-- Элементы UI -->
-    <div id="status">Двигайте камерой вокруг себя для обнаружения поверхностей</div>
-    <button class="ar-button" id="addButton">➕ Добавить модель</button>
-    <button class="ar-button" id="clearButton" style="bottom: 80px; display: none;">🗑️ Очистить</button>
-
-    <!-- Подключаем A-Frame и AR.js -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const scene = document.querySelector('a-scene');
-            const status = document.getElementById('status');
-            const addButton = document.getElementById('addButton');
-            const clearButton = document.getElementById('clearButton');
-            const testSphere = document.getElementById('testSphere');
-            const modelsContainer = document.getElementById('models-container');
-            
-            let isARReady = false;
-            let modelCount = 0;
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                console.log('🚀 Начало загрузки приложения...');
+                
+                let canvas = document.getElementById('renderCanvas');
+                let domOverlay = document.querySelector('#dom-overlay');
+                let addIcon = document.querySelector('#add_icon');
+                let loadingText = document.querySelector('#loading_text');
+                let errorMessage = document.querySelector('#error_message');
 
-            // Список моделей для загрузки (пробуем разные пути)
-            const modelPaths = [
-                // Локальные пути
-                "ar-sculptures/assets/models/cheburashka.glb",
-                // Тестовые модели с GitHub
-                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
-                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb',
-                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Robot/glTF-Binary/Robot.glb'
-            ];
-
-            // Функция обновления статуса
-            function updateStatus(message) {
-                status.textContent = message;
-                console.log(message);
-            }
-
-            // Функция загрузки модели
-            function loadModel(modelUrl) {
-                return new Promise((resolve, reject) => {
-                    const modelId = `model-${modelCount++}`;
-                    const modelEntity = document.createElement('a-entity');
-                    modelEntity.setAttribute('id', modelId);
-                    
-                    // Пробуем загрузить GLTF модель
-                    modelEntity.setAttribute('gltf-model', {
-                        src: modelUrl
-                    });
-                    
-                    // Добавляем в контейнер
-                    modelsContainer.appendChild(modelEntity);
-                    
-                    // События загрузки
-                    modelEntity.addEventListener('model-loaded', () => {
-                        console.log('✅ Модель загружена:', modelUrl);
-                        resolve(modelEntity);
-                    });
-                    
-                    modelEntity.addEventListener('model-error', () => {
-                        console.error('❌ Ошибка загрузки:', modelUrl);
-                        modelsContainer.removeChild(modelEntity);
-                        reject(new Error(`Не удалось загрузить модель: ${modelUrl}`));
-                    });
-                    
-                    // Таймаут
-                    setTimeout(() => {
-                        if (modelEntity.components['gltf-model'] && 
-                            modelEntity.components['gltf-model'].model) {
-                            resolve(modelEntity);
-                        } else {
-                            reject(new Error('Таймаут загрузки модели'));
-                        }
-                    }, 3000);
+                // Создаем движок с отладкой
+                let engine = new BABYLON.Engine(canvas, true, {
+                    preserveDrawingBuffer: true,
+                    stencil: true
                 });
-            }
+                
+                console.log('✅ Движок создан');
 
-            // Функция создания объекта в AR
-            async function createObject() {
-                if (!isARReady) {
-                    updateStatus('AR еще не готов. Подождите...');
-                    return;
+                let scene = new BABYLON.Scene(engine);
+                scene.clearColor = new BABYLON.Color4(0, 0, 0, 0);
+
+                // Включаем отладку
+                scene.debugLayer.show().catch(err => {
+                    console.log('Debug layer недоступен:', err);
+                });
+
+                // Освещение
+                let light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene);
+                light.intensity = 0.8;
+                console.log('✅ Освещение создано');
+
+                // Сначала создаем обычную камеру для тестирования
+                let camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
+                camera.attachControl(canvas, true);
+
+                // Функция для проверки существования файла
+                const checkFileExists = async (url) => {
+                    try {
+                        const response = await fetch(url, { method: 'HEAD' });
+                        return response.ok;
+                    } catch (error) {
+                        return false;
+                    }
+                };
+
+                // Улучшенная функция загрузки модели
+                const loadModel = async (modelPath, scene) => {
+                    console.log('🔄 Пытаюсь загрузить модель:', modelPath);
+                    loadingText.style.display = 'block';
+                    errorMessage.style.display = 'none';
+                    
+                    try {
+                        // Проверяем существование файла
+                        const fileExists = await checkFileExists(modelPath);
+                        if (!fileExists) {
+                            throw new Error(`Файл не найден: ${modelPath}`);
+                        }
+
+                        console.log('✅ Файл существует, начинаю загрузку...');
+
+                        // Загружаем модель с прогрессом
+                        const result = await BABYLON.SceneLoader.ImportMeshAsync(
+                            null, // загружаем все меши
+                            getBasePath(modelPath), // базовый путь
+                            getFileName(modelPath), // имя файла
+                            scene,
+                            (progress) => {
+                                console.log(`Прогресс загрузки: ${progress.loaded}/${progress.total}`);
+                            }
+                        );
+
+                        console.log('✅ Модель загружена успешно!');
+                        console.log('- Мешей:', result.meshes.length);
+                        console.log('- Материалов:', result.materials ? result.materials.length : 0);
+                        console.log('- Анимаций:', result.animationGroups ? result.animationGroups.length : 0);
+
+                        const model = result.meshes[0];
+                        model.name = "loaded-model";
+                        
+                        // Автоматическое масштабирование
+                        const boundingBox = model.getBoundingInfo().boundingBox;
+                        const size = boundingBox.maximum.subtract(boundingBox.minimum);
+                        const maxSize = Math.max(size.x, size.y, size.z);
+                        const scale = 0.5 / maxSize; // Чтобы модель была примерно 0.5 единиц в размере
+                        
+                        model.scaling = new BABYLON.Vector3(scale, scale, scale);
+                        model.position = new BABYLON.Vector3(0, 0, -2);
+                        
+                        // Настройка материала для лучшего отображения
+                        if (model.material) {
+                            model.material.backFaceCulling = false;
+                        }
+                        
+                        loadingText.style.display = 'none';
+                        return model;
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка загрузки модели:', error);
+                        loadingText.style.display = 'none';
+                        errorMessage.textContent = `Ошибка: ${error.message}`;
+                        errorMessage.style.display = 'block';
+                        
+                        // Создаем fallback кубик
+                        console.log('🔄 Создаю fallback кубик...');
+                        let box = BABYLON.MeshBuilder.CreateBox('fallback', { size: 0.3 }, scene);
+                        let material = new BABYLON.StandardMaterial('fallback-mat', scene);
+                        material.diffuseColor = new BABYLON.Color3(1, 0, 0);
+                        material.alpha = 0.8;
+                        box.material = material;
+                        box.position = new BABYLON.Vector3(0, 0, -2);
+                        
+                        return box;
+                    }
+                };
+
+                // Вспомогательные функции для работы с путями
+                function getBasePath(fullPath) {
+                    return fullPath.substring(0, fullPath.lastIndexOf('/') + 1);
                 }
 
-                updateStatus('Загрузка модели...');
-                
-                try {
-                    // Пробуем загрузить модели по порядку
-                    let loadedModel = null;
-                    
-                    for (const modelPath of modelPaths) {
+                function getFileName(fullPath) {
+                    return fullPath.substring(fullPath.lastIndexOf('/') + 1);
+                }
+
+                // Тестовые пути к моделям (раскомментируйте нужный)
+                const testModels = [
+                   "ar-sculptures/assets/models/cheburashka.glb"
+                ];
+
+                // Попробуем загрузить каждую модель пока одна не сработает
+                const loadFirstAvailableModel = async () => {
+                    for (let modelPath of testModels) {
+                        console.log(`🔄 Пробую загрузить: ${modelPath}`);
                         try {
-                            updateStatus(`Пробую: ${modelPath}`);
-                            loadedModel = await loadModel(modelPath);
-                            if (loadedModel) break;
+                            const model = await loadModel(modelPath, scene);
+                            if (model && model.name !== 'fallback') {
+                                console.log(`✅ Успешно загружена модель: ${modelPath}`);
+                                return model;
+                            }
                         } catch (error) {
-                            console.log(`Не удалось: ${modelPath}`);
+                            console.log(`❌ Не удалось загрузить ${modelPath}:`, error.message);
                             continue;
                         }
                     }
-                    
-                    if (!loadedModel) {
-                        throw new Error('Не удалось загрузить ни одну модель');
+                    throw new Error('Не удалось загрузить ни одну модель');
+                };
+
+                // Загружаем начальную модель
+                console.log('🔄 Загружаю начальную модель...');
+                let initialModel = await loadFirstAvailableModel();
+                console.log('✅ Начальная модель загружена');
+
+                // Только после успешной загрузки модели инициализируем XR
+                console.log('🔄 Инициализирую XR...');
+                let xr = await scene.createDefaultXRExperienceAsync({
+                    uiOptions: {
+                        sessionMode: 'immersive-ar',
+                        referenceSpaceType: 'local-floor',
                     }
-                    
-                    // Настраиваем позицию и масштаб
-                    loadedModel.setAttribute('position', {
-                        x: (Math.random() - 0.5) * 0.5,
-                        y: Math.random() * 0.3,
-                        z: -1 - Math.random() * 0.5
-                    });
-                    
-                    loadedModel.setAttribute('scale', '0.1 0.1 0.1');
-                    loadedModel.setAttribute('visible', 'true');
-                    
-                    // Добавляем анимацию
-                    loadedModel.setAttribute('animation', {
-                        property: 'rotation',
-                        to: '0 360 0',
-                        loop: true,
-                        dur: 10000 + Math.random() * 10000
-                    });
-                    
-                    updateStatus('Модель добавлена! Тапните по экрану для размещения');
-                    clearButton.style.display = 'block';
-                    
-                } catch (error) {
-                    console.error('Ошибка создания объекта:', error);
-                    updateStatus('Ошибка загрузки модели. Создаю куб...');
-                    
-                    // Создаем fallback куб
-                    const box = document.createElement('a-box');
-                    box.setAttribute('color', '#FF6B6B');
-                    box.setAttribute('position', {
-                        x: (Math.random() - 0.5) * 0.5,
-                        y: Math.random() * 0.3,
-                        z: -1 - Math.random() * 0.5
-                    });
-                    box.setAttribute('scale', '0.1 0.1 0.1');
-                    box.setAttribute('animation', {
-                        property: 'rotation',
-                        to: '360 360 360',
-                        loop: true,
-                        dur: 8000
-                    });
-                    modelsContainer.appendChild(box);
-                    
-                    clearButton.style.display = 'block';
-                }
+                });
+
+                let xrCamera = xr.baseExperience.camera;
+
+                // DOM Overlay
+                let featuresManager = xr.baseExperience.featuresManager;
+                featuresManager.enableFeature(BABYLON.WebXRDomOverlay, 'latest', {
+                    element: '#dom-overlay'
+                }, undefined, false);
+
+                // Обработка состояния XR
+                xr.baseExperience.onStateChangedObservable.add((webXRState) => {
+                    console.log('XR State:', webXRState);
+                    switch(webXRState) {
+                        case BABYLON.WebXRState.IN_XR:
+                            domOverlay.style.display = 'flex';
+                            // Переключаемся на XR камеру
+                            scene.activeCamera = xrCamera;
+                            break;
+                        case BABYLON.WebXRState.EXITING_XR:
+                            domOverlay.style.display = 'none';
+                            // Возвращаемся к обычной камере
+                            scene.activeCamera = camera;
+                            break;
+                    }
+                });
+
+                let activeElement = null;
+
+                // Создаем объект с моделью
+                const createObject = async () => {
+                    try {
+                        console.log('🔄 Создаю новый объект...');
+                        const model = await loadFirstAvailableModel();
+                        
+                        // Позиционируем перед камерой
+                        const currentCamera = scene.activeCamera;
+                        if (currentCamera.getFrontPosition) {
+                            model.position = currentCamera.getFrontPosition(1);
+                        } else {
+                            model.position = new BABYLON.Vector3(0, 0, -2);
+                        }
+                        
+                        // Анимация вращения
+                        scene.registerBeforeRender(() => {
+                            model.rotation.y += 0.01;
+                        });
+                        
+                        activeElement = model;
+                        console.log('✅ Новый объект создан');
+                        
+                    } catch (error) {
+                        console.error('❌ Ошибка создания объекта:', error);
+                    }
+                };
+
+                // Рендер-луп
+                engine.runRenderLoop(() => {
+                    scene.render();
+                });
+
+                console.log('✅ Рендер-луп запущен');
+
+                // Обработка клика
+                addIcon.addEventListener('click', createObject);
+
+                window.addEventListener('resize', () => {
+                    engine.resize();
+                });
+
+                console.log('🎉 Приложение полностью загружено!');
+
+            } catch (error) {
+                console.error('💥 Критическая ошибка инициализации:', error);
+                alert('Ошибка загрузки приложения: ' + error.message);
             }
-
-            // Обработчики событий сцены
-            scene.addEventListener('loaded', function() {
-                updateStatus('Сцена загружена. Разрешите доступ к камере...');
-            });
-
-            scene.addEventListener('arReady', function() {
-                isARReady = true;
-                updateStatus('AR готов! Двигайте камерой и нажимайте +');
-                testSphere.setAttribute('visible', 'true');
-            });
-
-            scene.addEventListener('markerFound', function() {
-                updateStatus('Поверхность обнаружена!');
-            });
-
-            scene.addEventListener('markerLost', function() {
-                updateStatus('Ищем поверхности...');
-            });
-
-            // Обработка кликов по сцене
-            scene.addEventListener('click', function(event) {
-                if (isARReady && event.detail.intersection) {
-                    createObject();
-                }
-            });
-
-            // Обработчики кнопок
-            addButton.addEventListener('click', createObject);
-            
-            clearButton.addEventListener('click', function() {
-                while (modelsContainer.firstChild) {
-                    modelsContainer.removeChild(modelsContainer.firstChild);
-                }
-                modelCount = 0;
-                clearButton.style.display = 'none';
-                updateStatus('Сцена очищена');
-            });
-
-            // Предотвращение масштабирования на мобильных
-            document.addEventListener('touchmove', function(e) {
-                if (e.scale !== 1) {
-                    e.preventDefault();
-                }
-            }, { passive: false });
-
-            updateStatus('Загрузка AR...');
         });
     </script>
 </body>
