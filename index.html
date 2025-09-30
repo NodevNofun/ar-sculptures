@@ -3,89 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR App with AR.js</title>
-    <style>
-        body { margin: 0; font-family: Arial, sans-serif; }
-        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; color: white; background: rgba(0,0,0,0.7); padding: 10px; display: none; }
-        #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
-        button { margin: 0 10px; padding: 10px 20px; font-size: 16px; }
-    </style>
-    <!-- Подключаем A-Frame и AR.js -->
+    <title>AR-приложение с World Tracking</title>
+    <!-- Подключаем A-Frame (включает Three.js) -->
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <!-- Подключаем WebXR polyfill для лучшей совместимости -->
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
 </head>
-<body>
-    <!-- Индикатор загрузки -->
-    <div id="loading">Загрузка модели...</div>
-
-    <!-- A-Frame сцена -->
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;" vr-mode-ui="enabled: false">
-        <!-- Явная камера с настройками для AR -->
-        <a-camera near="0.1" far="100" fov="60"></a-camera>
+<body style="margin: 0; overflow: hidden;">
+    <!-- AR-сцена с WebXR -->
+    <a-scene xr-mode-ui="enabled: true" device-orientation-permission-ui="enabled: true">
+        <!-- Камера для AR -->
+        <a-entity camera="active: true" look-controls="enabled: false"></a-entity>
         
-        <!-- Маркер для AR -->
-        <a-marker preset="hiro" id="marker">
-            <!-- Контейнер для объектов -->
-            <a-entity id="object-container"></a-entity>
-        </a-marker>
+        <!-- 3D-модель, которая будет размещена в мире -->
+        <a-entity id="myModelEntity" gltf-model="#myModel" scale="0.5 0.5 0.5" position="0 0 -1" visible="false"></a-entity>
         
-        <!-- Свет (для освещения) -->
-        <a-entity light="type: directional; color: #FFF; intensity: 1" position="1 1 1"></a-entity>
+        <!-- Плоскость для размещения модели (опционально, для лучшего взаимодействия) -->
+        <a-plane position="0 0 -1" rotation="-90 0 0" width="2" height="2" color="#ffffff" opacity="0.1" visible="false" id="placementPlane"></a-plane>
     </a-scene>
 
-    <!-- Элементы управления -->
-    <div id="controls">
-        <button id="add-cheburashka">Добавить Чебурашку</button>
-        <button id="add-crocodile">Добавить Крокодила Гену</button>
-    </div>
+    <!-- Ассеты -->
+    <a-assets>
+        <a-asset-item id="myModel" src="ar-sculptures/assets/models/cheburashka.glb"></a-asset-item>
+    </a-assets>
 
+    <!-- JavaScript для взаимодействия (размещение модели тапом) -->
     <script>
-        // Функция для загрузки модели (с fallback)
-        function loadModel(modelUrl, container) {
-            const loading = document.getElementById('loading');
-            loading.style.display = 'block';
+        // Получаем элементы
+        const scene = document.querySelector('a-scene');
+        const modelEntity = document.querySelector('#myModelEntity');
+        const placementPlane = document.querySelector('#placementPlane');
 
-            // Создаём entity для модели
-            const modelEntity = document.createElement('a-entity');
-            modelEntity.setAttribute('gltf-model', modelUrl);
-            modelEntity.setAttribute('scale', '0.05 0.05 0.05'); // Уменьшенный масштаб
-            modelEntity.setAttribute('position', '0 0 -0.2'); // Позиция дальше от маркера
-
-            // Обработчик загрузки
-            modelEntity.addEventListener('model-loaded', () => {
-                loading.style.display = 'none';
-                console.log('Модель загружена:', modelUrl);
-            });
-
-            // Обработчик ошибки
-            modelEntity.addEventListener('model-error', (e) => {
-                console.error('Ошибка загрузки модели:', e.detail);
-                loading.style.display = 'none';
-                
-                // Fallback: кубик
-                const fallback = document.createElement('a-entity');
-                fallback.setAttribute('geometry', 'primitive: box; width: 0.05; height: 0.05; depth: 0.05'); // Масштаб fallback тоже уменьшен
-                fallback.setAttribute('material', 'color: red');
-                fallback.setAttribute('position', '0 0 -0.2'); // Та же позиция
-                container.appendChild(fallback);
-            });
-
-            container.appendChild(modelEntity);
+        // Функция для размещения модели на тач/клик
+        function placeModel(event) {
+            if (modelEntity.getAttribute('visible') === false) {
+                // Получаем позицию из события (для тача или клика)
+                const intersection = event.detail.intersection;
+                if (intersection) {
+                    modelEntity.setAttribute('position', intersection.point);
+                    modelEntity.setAttribute('visible', true);
+                    placementPlane.setAttribute('visible', false); // Скрываем плоскость после размещения
+                }
+            }
         }
 
-        // Обработчики кнопок
-        document.getElementById('add-cheburashka').addEventListener('click', () => {
-            const container = document.getElementById('object-container');
-            loadModel('http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc', container); // Замени на свой путь
-        });
+        // Слушаем событие клика/тача на плоскости
+        placementPlane.addEventListener('click', placeModel);
 
-        document.getElementById('add-crocodile').addEventListener('click', () => {
-            const container = document.getElementById('object-container');
-            loadModel('http://localhost:9000/ar-content/models/e911640d-d3a2-4b57-ae12-283139780ea2_gena_the_crocodile.glb?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=admin%2F20250926%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20250926T184405Z&X-Amz-Expires=86400&X-Amz-SignedHeaders=host&X-Amz-Signature=23a14c51904fbf2e6c4b4ef2c8e52076a7ba8c86db01c298c208c01455f9bebc', container); // Полный URL
+        // Когда сцена готова, показываем плоскость для размещения
+        scene.addEventListener('loaded', function() {
+            placementPlane.setAttribute('visible', true);
         });
-
-        // Инициализация (если нужно что-то ещё)
-        console.log('AR.js сцена готова');
     </script>
 </body>
 </html>
