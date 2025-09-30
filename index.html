@@ -2,110 +2,158 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AR-приложение с World Tracking</title>
-    <!-- Подключаем A-Frame и AR.js -->
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, viewport-fit=cover">
+    <title>AR World Tracking</title>
     <style>
-        body {
+        * {
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
+        
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            font-family: Arial, sans-serif;
+        }
+        
         .ar-button {
-            position: absolute;
+            position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 150, 255, 0.8);
+            background: rgba(0, 150, 255, 0.9);
             color: white;
             border: none;
-            padding: 12px 24px;
+            padding: 15px 30px;
             border-radius: 25px;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
             z-index: 1000;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        #status {
+            position: fixed;
+            top: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            z-index: 1000;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <!-- AR-сцена с World Tracking -->
+    <!-- AR сцена -->
     <a-scene 
         vr-mode-ui="enabled: false"
-        arjs="sourceType: webcam; trackingMethod: world; debugUIEnabled: false;"
+        arjs="sourceType: webcam; 
+              trackingMethod: world; 
+              debugUIEnabled: false;
+              sourceWidth: 1280;
+              sourceHeight: 720;
+              displayWidth: 1280; 
+              displayHeight: 720;"
         embedded
-        renderer="logarithmicDepthBuffer: true;"
-        device-orientation-permission-ui="enabled: true">
+        renderer="logarithmicDepthBuffer: true; precision: mediump;"
+        device-orientation-permission-ui="enabled: false">
         
-        <!-- Камера для AR -->
+        <!-- Камера -->
         <a-camera-static></a-camera-static>
         
-        <!-- Плоскость для размещения (видна только при обнаружении поверхностей) -->
-        <a-entity 
-            id="placementPlane" 
-            geometry="primitive: plane; width: 0.5; height: 0.5" 
-            material="color: #00ff00; opacity: 0.5; transparent: true" 
-            position="0 0 0" 
+        <!-- Сфера-индикатор для тестирования кликов -->
+        <a-sphere 
+            id="testSphere"
+            radius="0.05" 
+            color="#FF0000" 
+            position="0 0 -1"
             visible="false"
             class="clickable">
-        </a-entity>
+        </a-sphere>
 
-        <!-- Контейнер для загруженных моделей -->
-        <a-entity id="modelsContainer"></a-entity>
+        <!-- Контейнер для моделей -->
+        <a-entity id="models-container"></a-entity>
 
         <!-- Освещение -->
         <a-entity light="type: ambient; color: #CCC; intensity: 0.6"></a-entity>
-        <a-entity light="type: directional; color: #FFF; intensity: 0.8; position: 0 1 1"></a-entity>
+        <a-entity light="type: directional; color: #FFF; intensity: 0.8; position: 1 1 0.5"></a-entity>
     </a-scene>
 
-    <!-- Кнопка для очистки сцены -->
-    <button class="ar-button" id="clearButton" style="display: none;">Очистить сцену</button>
+    <!-- Элементы UI -->
+    <div id="status">Двигайте камерой вокруг себя для обнаружения поверхностей</div>
+    <button class="ar-button" id="addButton">➕ Добавить модель</button>
+    <button class="ar-button" id="clearButton" style="bottom: 80px; display: none;">🗑️ Очистить</button>
+
+    <!-- Подключаем A-Frame и AR.js -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 
     <script>
-        // Ждем загрузки сцены
-        document.querySelector('a-scene').addEventListener('loaded', function() {
-            const scene = this;
-            const placementPlane = document.querySelector('#placementPlane');
-            const modelsContainer = document.querySelector('#modelsContainer');
-            const clearButton = document.querySelector('#clearButton');
+        document.addEventListener('DOMContentLoaded', function() {
+            const scene = document.querySelector('a-scene');
+            const status = document.getElementById('status');
+            const addButton = document.getElementById('addButton');
+            const clearButton = document.getElementById('clearButton');
+            const testSphere = document.getElementById('testSphere');
+            const modelsContainer = document.getElementById('models-container');
             
-            let isSurfaceDetected = false;
-            let modelCounter = 0;
+            let isARReady = false;
+            let modelCount = 0;
 
-            // Список доступных моделей
-            const availableModels = [
-                "ar-sculptures/assets/models/cheburashka.glb"
+            // Список моделей для загрузки (пробуем разные пути)
+            const modelPaths = [
+                // Локальные пути
+                "ar-sculptures/assets/models/cheburashka.glb",
+                // Тестовые модели с GitHub
+                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
+                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb',
+                'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Robot/glTF-Binary/Robot.glb'
             ];
 
+            // Функция обновления статуса
+            function updateStatus(message) {
+                status.textContent = message;
+                console.log(message);
+            }
+
             // Функция загрузки модели
-            async function loadModel(modelUrl) {
+            function loadModel(modelUrl) {
                 return new Promise((resolve, reject) => {
-                    // Создаем entity для модели
-                    const modelId = `model-${modelCounter++}`;
+                    const modelId = `model-${modelCount++}`;
                     const modelEntity = document.createElement('a-entity');
                     modelEntity.setAttribute('id', modelId);
-                    modelEntity.setAttribute('class', 'ar-object');
                     
-                    // Пробуем загрузить модель
-                    modelEntity.setAttribute('gltf-model', `url(${modelUrl})`);
+                    // Пробуем загрузить GLTF модель
+                    modelEntity.setAttribute('gltf-model', {
+                        src: modelUrl
+                    });
                     
-                    // Добавляем в сцену
+                    // Добавляем в контейнер
                     modelsContainer.appendChild(modelEntity);
                     
-                    // Ждем загрузки модели
+                    // События загрузки
                     modelEntity.addEventListener('model-loaded', () => {
-                        console.log('Модель загружена:', modelUrl);
+                        console.log('✅ Модель загружена:', modelUrl);
                         resolve(modelEntity);
                     });
                     
-                    modelEntity.addEventListener('model-error', (error) => {
-                        console.error('Ошибка загрузки модели:', modelUrl, error);
+                    modelEntity.addEventListener('model-error', () => {
+                        console.error('❌ Ошибка загрузки:', modelUrl);
                         modelsContainer.removeChild(modelEntity);
-                        reject(error);
+                        reject(new Error(`Не удалось загрузить модель: ${modelUrl}`));
                     });
-
-                    // Таймаут на случай если события не сработают
+                    
+                    // Таймаут
                     setTimeout(() => {
                         if (modelEntity.components['gltf-model'] && 
                             modelEntity.components['gltf-model'].model) {
@@ -113,101 +161,130 @@
                         } else {
                             reject(new Error('Таймаут загрузки модели'));
                         }
-                    }, 5000);
+                    }, 3000);
                 });
             }
 
-            // Функция для получения случайной модели из доступных
-            function getRandomModelUrl() {
-                // Сначала пробуем загрузить тестовую модель если локальные не работают
-                const fallbackModels = [
-                    'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Duck/glTF-Binary/Duck.glb',
-                    'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb'
-                ];
+            // Функция создания объекта в AR
+            async function createObject() {
+                if (!isARReady) {
+                    updateStatus('AR еще не готов. Подождите...');
+                    return;
+                }
+
+                updateStatus('Загрузка модели...');
                 
-                // Случайный выбор между локальными и тестовыми моделями
-                const allModels = [...availableModels, ...fallbackModels];
-                return allModels[Math.floor(Math.random() * allModels.length)];
-            }
-
-            // Функция размещения модели
-            async function placeModel(event) {
-                if (!isSurfaceDetected) return;
-
-                const intersection = event.detail.intersection;
-                if (intersection && intersection.point) {
-                    try {
-                        const modelUrl = getRandomModelUrl();
-                        console.log('Пытаюсь загрузить модель:', modelUrl);
-                        
-                        const modelEntity = await loadModel(modelUrl);
-                        
-                        // Устанавливаем позицию и настройки
-                        modelEntity.setAttribute('position', intersection.point);
-                        modelEntity.setAttribute('scale', '0.05 0.05 0.05');
-                        modelEntity.setAttribute('visible', 'true');
-                        
-                        // Добавляем анимацию
-                        modelEntity.setAttribute('animation', {
-                            property: 'rotation',
-                            to: '0 360 0',
-                            loop: true,
-                            dur: 10000
-                        });
-
-                        // Показываем кнопку очистки
-                        clearButton.style.display = 'block';
-                        
-                    } catch (error) {
-                        console.error('Ошибка при размещении модели:', error);
-                        // Создаем простой куб как fallback
-                        const fallbackBox = document.createElement('a-box');
-                        fallbackBox.setAttribute('color', '#FF6B6B');
-                        fallbackBox.setAttribute('position', intersection.point);
-                        fallbackBox.setAttribute('scale', '0.1 0.1 0.1');
-                        modelsContainer.appendChild(fallbackBox);
+                try {
+                    // Пробуем загрузить модели по порядку
+                    let loadedModel = null;
+                    
+                    for (const modelPath of modelPaths) {
+                        try {
+                            updateStatus(`Пробую: ${modelPath}`);
+                            loadedModel = await loadModel(modelPath);
+                            if (loadedModel) break;
+                        } catch (error) {
+                            console.log(`Не удалось: ${modelPath}`);
+                            continue;
+                        }
                     }
+                    
+                    if (!loadedModel) {
+                        throw new Error('Не удалось загрузить ни одну модель');
+                    }
+                    
+                    // Настраиваем позицию и масштаб
+                    loadedModel.setAttribute('position', {
+                        x: (Math.random() - 0.5) * 0.5,
+                        y: Math.random() * 0.3,
+                        z: -1 - Math.random() * 0.5
+                    });
+                    
+                    loadedModel.setAttribute('scale', '0.1 0.1 0.1');
+                    loadedModel.setAttribute('visible', 'true');
+                    
+                    // Добавляем анимацию
+                    loadedModel.setAttribute('animation', {
+                        property: 'rotation',
+                        to: '0 360 0',
+                        loop: true,
+                        dur: 10000 + Math.random() * 10000
+                    });
+                    
+                    updateStatus('Модель добавлена! Тапните по экрану для размещения');
+                    clearButton.style.display = 'block';
+                    
+                } catch (error) {
+                    console.error('Ошибка создания объекта:', error);
+                    updateStatus('Ошибка загрузки модели. Создаю куб...');
+                    
+                    // Создаем fallback куб
+                    const box = document.createElement('a-box');
+                    box.setAttribute('color', '#FF6B6B');
+                    box.setAttribute('position', {
+                        x: (Math.random() - 0.5) * 0.5,
+                        y: Math.random() * 0.3,
+                        z: -1 - Math.random() * 0.5
+                    });
+                    box.setAttribute('scale', '0.1 0.1 0.1');
+                    box.setAttribute('animation', {
+                        property: 'rotation',
+                        to: '360 360 360',
+                        loop: true,
+                        dur: 8000
+                    });
+                    modelsContainer.appendChild(box);
+                    
+                    clearButton.style.display = 'block';
                 }
             }
 
-            // Обработка обнаружения поверхностей
+            // Обработчики событий сцены
+            scene.addEventListener('loaded', function() {
+                updateStatus('Сцена загружена. Разрешите доступ к камере...');
+            });
+
+            scene.addEventListener('arReady', function() {
+                isARReady = true;
+                updateStatus('AR готов! Двигайте камерой и нажимайте +');
+                testSphere.setAttribute('visible', 'true');
+            });
+
             scene.addEventListener('markerFound', function() {
-                isSurfaceDetected = true;
-                placementPlane.setAttribute('visible', 'true');
-                console.log('Поверхность обнаружена');
+                updateStatus('Поверхность обнаружена!');
             });
 
             scene.addEventListener('markerLost', function() {
-                isSurfaceDetected = false;
-                placementPlane.setAttribute('visible', 'false');
-                console.log('Поверхность потеряна');
+                updateStatus('Ищем поверхности...');
             });
 
-            // Обработка клика по плоскости
-            placementPlane.addEventListener('click', placeModel);
+            // Обработка кликов по сцене
+            scene.addEventListener('click', function(event) {
+                if (isARReady && event.detail.intersection) {
+                    createObject();
+                }
+            });
 
-            // Очистка сцены
+            // Обработчики кнопок
+            addButton.addEventListener('click', createObject);
+            
             clearButton.addEventListener('click', function() {
                 while (modelsContainer.firstChild) {
                     modelsContainer.removeChild(modelsContainer.firstChild);
                 }
+                modelCount = 0;
                 clearButton.style.display = 'none';
-                modelCounter = 0;
+                updateStatus('Сцена очищена');
             });
 
-            // Также разрешаем клик по любой обнаруженной поверхности
-            scene.addEventListener('click', function(event) {
-                if (isSurfaceDetected && event.detail.intersection) {
-                    placeModel(event);
+            // Предотвращение масштабирования на мобильных
+            document.addEventListener('touchmove', function(e) {
+                if (e.scale !== 1) {
+                    e.preventDefault();
                 }
-            });
+            }, { passive: false });
 
-            console.log('AR сцена готова. Ищите поверхности и тапайте для размещения моделей!');
-        });
-
-        // Обработка ошибок
-        document.querySelector('a-scene').addEventListener('error', function(error) {
-            console.error('Ошибка сцены:', error);
+            updateStatus('Загрузка AR...');
         });
     </script>
 </body>
